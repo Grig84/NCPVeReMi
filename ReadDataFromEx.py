@@ -1,4 +1,4 @@
-#GENERATE DATA FILES:
+#GENERATE DATA FILES FOR CFC MODEL FROM EXTENSION:
 import json
 import pandas as pd
 import os
@@ -72,17 +72,6 @@ for log in os.listdir(attackFolder+path):
 
 #Organize dataframe:
 dataset.sort_values(['RecieverID','SenderID']) #Sort by reciever ID then by Sender ID
-dataset.reset_index(drop=True) #
+dataset.reset_index(drop=True) #make indexes make sense after sort
 
-print(dataset, file=open("out.txt",'w'))
-
-
-        # data = data.loc[data['type'] == 2] #Only gather entries from this vehicle (Do we want this? or do we want the opposite??????)
-        # data = data.dropna(axis=1, how="all") #Remove null columns
-        # data = data.drop(axis=1, labels='type') #Remove useless column
-        # data = data.reset_index(drop=True) #reorder the table to have consecutive indexes
-        # list = data.values.tolist() #Convert dataframe to list for ease of reformatting (probably not necessary, and wasteful)
-        # dic = data.to_dict(orient="index") #Convert dataframe to dictionary to preserve formatting and labels
-        # dataset[vID] = {"BSMs":dic, "Attack Type":attk} #Organize data as a dict for ease of reference
-
-# json.dump(dataset, open(outputFolder+fileName+".json", "w"), indent=4) #Output data as nice looking json file.
+dataset.to_csv(open(outputFolder+fileName+".csv", 'w')) #Output to CSV
