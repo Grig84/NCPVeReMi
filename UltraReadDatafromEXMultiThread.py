@@ -41,23 +41,26 @@ def crunch(folder, threadNum):
     print("Thread " + str(threadNum) + " Starting")
     dataset = pd.DataFrame(columns=['SenderID', 'sendTime', 'Posx','Posy','Spdx','Spdy']) #Stores output while program is running
     loop = 0
+    datas = []
     startTime = time.monotonic()
+    tag = "-th"+str(threadNum)
     for log in os.listdir(attackFolder+folder): #Loop through all logs
-        tag = "-th"+str(threadNum)
-
         #if file is a log...
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
-            if not loop % (totLoop/10):
+            if not loop % (totLoop/100):
                 print("Thread " + str(threadNum) + ": " + str(int(loop*100/totLoop)) + "%")
+            loop += 1
+            
             #Setup IDs
-            data = pd.read_json(attackFolder+folder+"/"+log, lines=True) #Get all of the entries
-            for _, row in data.iterrows():
-                entry = [int(row['sender']), row['sendTime'], row['pos'][0], row['pos'][1], row['spd'][0], row['spd'][1]]#Create entry for this message
-                dataset.loc[-1] = entry #add entry to dataframe
-                dataset.index += 1
+            data = pd.read_json(attackFolder+folder+log, lines=True) #Get all of the entries
+            data = data[data['type'] == 3]
+            if not data.empty:
+                data.drop(columns=['type','rcvTime','messageID','pos_noise','senderPseudo','spd_noise','acl','acl_noise','hed','hed_noise'], inplace=True)
+                datas.append(data)
 
     #Organize dataframe:
-    dataset.sort_values(by=['SenderID', "sendTime"], inplace=True) #Sort by reciever ID then by Sender ID
+    dataset = pd.concat(datas)
+    dataset.sort_values(by=['sender', "sendTime"], inplace=True) #Sort by reciever ID then by Sender ID
     dataset.reset_index(drop=True, inplace=True) #make indexes make sense after sort
 
     dataset.to_csv(open(outputFolder+fileName+tag+".csv", 'w')) #Output to CSV'
@@ -65,20 +68,19 @@ def crunch(folder, threadNum):
 
 fullStartTime = time.monotonic()
 
-crunch(attackFolder + "DoS_1416", 1)
 #Start multithreaded workload
-# if __name__ == '__main__':
-#     processes = []
-#     threadNum = 0
-#     for subfolder in os.listdir(attackFolder):
-#         threadNum+=1
-#         processes.append(multiprocessing.Process(target=crunch, args=(subfolder+"/", threadNum)))
+if __name__ == '__main__':
+    processes = []
+    threadNum = 0
+    for subfolder in os.listdir(attackFolder):
+        threadNum+=1
+        processes.append(multiprocessing.Process(target=crunch, args=(subfolder+'/', threadNum)))
 
-#     for thread in processes:
-#         thread.start()
+    for thread in processes:
+        thread.start()
 
 
-#     for thread in processes:
-#         thread.join()
+    for thread in processes:
+        thread.join()
 
 print("Program execution time: " + str(timedelta(seconds=(time.monotonic() - fullStartTime))))

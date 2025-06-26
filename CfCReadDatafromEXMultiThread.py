@@ -33,28 +33,31 @@ def crunch(folder, threadNum):
     for log in os.listdir(attackFolder+folder):
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
             name = log.split("-")
-            vID, attk = name[2], int(name[3][1:]) #Get ID and attacker status, casting attacker status to int
+            vID, attk = name[1], int(name[3][1:]) #Get ID and attacker status, casting attacker status to int
             vehicles[vID] = attk #Append ID and attacker status to running list
             totLoop += 1
 
     #Loop through entries and save messages in correct formatting
     print("Thread " + str(threadNum) + " Starting")
-    dataset = pd.DataFrame(columns=['RecieverID','SenderID', 'rcvTime', 'RelX','RelY','MssgCount','dVx', 'dVy', 'AttkType']) #Stores output while program is running
+    dataset = pd.DataFrame(columns=['RecieverID','SenderID', 'rcvTime', 'RelX','RelY','MssgCount','dVx', 'dVy', 'dAx', 'dAy', 'AttkType']) #Stores output while program is running
     loop = 0
+    entrys = []
     startTime = time.monotonic()
     for log in os.listdir(attackFolder+folder): #Loop through all logs
         tag = "-th"+str(threadNum)
         #if file is a log...
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
-            if not loop % (totLoop/10):
+            if not loop % (totLoop/100):
                 print("Thread " + str(threadNum) + ": " + str(int(loop*100/totLoop)) + "%")
+            loop += 1
             #Setup IDs
-            rcvID = log.split("-")[2]
+            rcvID = log.split("-")[1]
             rcvPos = [0,0]
             countsSinceLocal = {}
             prevTelems = {}
             data = pd.read_json(attackFolder+folder+"/"+log, lines=True) #Get all of the entries
-            for _, row in data.iterrows():
+            lndata = data.values.tolist()
+            for row in lndata:
                 if row['type'] == 2:
                     #Save Rec ID and messages since last transmission
                     rcvPos = [row['pos'][0], row['pos'][1]]
@@ -79,9 +82,9 @@ def crunch(folder, threadNum):
                     relY = abs(row['pos'][1] - rcvPos[1])
                     entry = [rcvID, int(row['sender']), row['rcvTime'], relX, relY, count, dVx, dVy, dAx, dAy, vehicles[str(int(row['sender']))]]#Create entry for this message
                     prevTelems[row['sender']] = row #Update previous info with this row
-                    dataset.loc[-1] = entry #add entry to dataframe
-                    dataset.index += 1
+                    entrys.append(entry)
 
+    dataset = pd.concat(entrys)
     #Organize dataframe:
     dataset.sort_values(by=['RecieverID','SenderID', "rcvTime"], inplace=True) #Sort by reciever ID then by Sender ID
     dataset.reset_index(drop=True, inplace=True) #make indexes make sense after sort
@@ -91,7 +94,7 @@ def crunch(folder, threadNum):
 
 fullStartTime = time.monotonic()
 
-crunch(attackFolder + "DoS_1416", 1)
+crunch("DoS_1416"+'/', 1)
 #Start multithreaded workload
 # if __name__ == '__main__':
 #     processes = []
