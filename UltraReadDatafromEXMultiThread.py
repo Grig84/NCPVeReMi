@@ -30,7 +30,7 @@ def crunch(folder, threadNum):
     vehicles = {} #Stores an array with vehicle ID and attacker status
     dataset = pd.DataFrame(columns=['SenderID', 'sendTime', 'Posx','Posy','Spdx','Spdy']) #Stores output while program is running
     #Loop through all different simulations
-    for log in os.listdir(attackFolder+folder):
+    for log in os.listdir(attackFolder+folder+'/'):
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
             name = log.split("-")
             vID, attk = name[2], int(name[3][1:]) #Get ID and attacker status, casting attacker status to int
@@ -44,15 +44,15 @@ def crunch(folder, threadNum):
     datas = []
     startTime = time.monotonic()
     tag = "-th"+str(threadNum)
-    for log in os.listdir(attackFolder+folder): #Loop through all logs
+    for log in os.listdir(attackFolder+folder+'/'): #Loop through all logs
         #if file is a log...
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
             if not loop % (totLoop/100):
                 print("Thread " + str(threadNum) + ": " + str(int(loop*100/totLoop)) + "%")
             loop += 1
-            
+
             #Setup IDs
-            data = pd.read_json(attackFolder+folder+log, lines=True) #Get all of the entries
+            data = pd.read_json(attackFolder+folder+'/'+log, lines=True) #Get all of the entries
             data = data[data['type'] == 3]
             if not data.empty:
                 data.drop(columns=['type','rcvTime','messageID','pos_noise','senderPseudo','spd_noise','acl','acl_noise','hed','hed_noise'], inplace=True)
@@ -63,8 +63,8 @@ def crunch(folder, threadNum):
     dataset.sort_values(by=['sender', "sendTime"], inplace=True) #Sort by reciever ID then by Sender ID
     dataset.reset_index(drop=True, inplace=True) #make indexes make sense after sort
 
-    dataset.to_csv(open(outputFolder+fileName+tag+".csv", 'w')) #Output to CSV'
-    print(fileName+tag + " Done in " + str(timedelta(seconds=(time.monotonic()-startTime))))
+    dataset.to_csv(open(outputFolder+fileName+".csv", 'w')) #Output to CSV'
+    print(fileName + " Done in " + str(timedelta(seconds=(time.monotonic()-startTime)))+ " by Thread " + str(threadNum))
 
 fullStartTime = time.monotonic()
 
@@ -74,7 +74,7 @@ if __name__ == '__main__':
     threadNum = 0
     for subfolder in os.listdir(attackFolder):
         threadNum+=1
-        processes.append(multiprocessing.Process(target=crunch, args=(subfolder+'/', threadNum)))
+        processes.append(multiprocessing.Process(target=crunch, args=(subfolder, threadNum)))
 
     for thread in processes:
         thread.start()

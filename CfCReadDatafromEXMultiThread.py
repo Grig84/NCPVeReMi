@@ -30,7 +30,7 @@ def crunch(folder, threadNum):
     vehicles = {} #Stores an array with vehicle ID and attacker status
     dataset = pd.DataFrame(columns=['RecieverID','SenderID', 'rcvTime', 'RelX','RelY','MssgCount','dVx', 'dVy', 'AttkType']) #Stores output while program is running
     #Loop through all different simulations
-    for log in os.listdir(attackFolder+folder):
+    for log in os.listdir(attackFolder+folder+'/'):
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
             name = log.split("-")
             vID, attk = name[1], int(name[3][1:]) #Get ID and attacker status, casting attacker status to int
@@ -43,7 +43,7 @@ def crunch(folder, threadNum):
     loop = 0
     entrys = []
     startTime = time.monotonic()
-    for log in os.listdir(attackFolder+folder): #Loop through all logs
+    for log in os.listdir(attackFolder+folder+'/'): #Loop through all logs
         tag = "-th"+str(threadNum)
         #if file is a log...
         if log.endswith('.json') and not log.startswith("traceGr") and not log.startswith('._'): #Get all files without ground truth
@@ -56,7 +56,7 @@ def crunch(folder, threadNum):
             countsSinceLocal = {}
             prevTelems = {}
             data = pd.read_json(attackFolder+folder+"/"+log, lines=True) #Get all of the entries
-            lndata = data.values.tolist()
+            lndata = data.to_dict(orient='records')
             for row in lndata:
                 if row['type'] == 2:
                     #Save Rec ID and messages since last transmission
@@ -84,30 +84,29 @@ def crunch(folder, threadNum):
                     prevTelems[row['sender']] = row #Update previous info with this row
                     entrys.append(entry)
 
-    dataset = pd.concat(entrys)
+    dataset = pd.DataFrame(entrys, columns=dataset.columns)
     #Organize dataframe:
     dataset.sort_values(by=['RecieverID','SenderID', "rcvTime"], inplace=True) #Sort by reciever ID then by Sender ID
     dataset.reset_index(drop=True, inplace=True) #make indexes make sense after sort
 
-    dataset.to_csv(open(outputFolder+fileName+tag+".csv", 'w')) #Output to CSV'
-    print(fileName+tag + " Done in " + str(timedelta(seconds=(time.monotonic()-startTime))))
+    dataset.to_csv(open(outputFolder+fileName+'.csv', 'w')) #Output to CSV'
+    print(fileName + " Done in " + str(timedelta(seconds=(time.monotonic()-startTime)))+ " by Thread " + str(threadNum))
 
 fullStartTime = time.monotonic()
 
-crunch("DoS_1416"+'/', 1)
 #Start multithreaded workload
-# if __name__ == '__main__':
-#     processes = []
-#     threadNum = 0
-#     for subfolder in os.listdir(attackFolder):
-#         threadNum+=1
-#         processes.append(multiprocessing.Process(target=crunch, args=(subfolder+"/", threadNum)))
+if __name__ == '__main__':
+    processes = []
+    threadNum = 0
+    for subfolder in os.listdir(attackFolder):
+        threadNum+=1
+        processes.append(multiprocessing.Process(target=crunch, args=(subfolder, threadNum)))
 
-#     for thread in processes:
-#         thread.start()
+    for thread in processes:
+        thread.start()
 
 
-#     for thread in processes:
-#         thread.join()
+    for thread in processes:
+        thread.join()
 
 print("Program execution time: " + str(timedelta(seconds=(time.monotonic() - fullStartTime))))
