@@ -88,8 +88,10 @@ def crunch(folder, threadNum):
                         dataset.index += 1
 
         #Organize dataframe:
-        dataset.sort_values(by=['RecieverID','SenderID', "rcvTime"], inplace=True) #Sort by reciever ID then by Sender ID
+        dataset.sort_values(by=['SenderID', "rcvTime","RecieverID"], inplace=True) #Sort by reciever ID then by Sender ID
         dataset.reset_index(drop=True, inplace=True) #make indexes make sense after sort
+
+        
 
         dataset.to_csv(open(outputFolder+fileName+tag+".csv", 'w')) #Output to CSV'
         print(fileName+tag + " Done")
