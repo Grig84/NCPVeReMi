@@ -92,6 +92,7 @@ def crunch(folder, threadNum):
                     else:
                         mssgs[sender] = [entry, 1] # Set count to 1 and add latest entry
 
+    # Padding:
     # go through sending vehicles
     for tom in mssgs.values():
         entry, it = tom
