@@ -39,3 +39,6 @@ Both methods in this paper output their results to separate text files, both pla
 The Decentralized method, labeled _DeFTA: Decentralized Federated Training_, is based off of the work done in [this](patphapnh) paper on DeFTA (Decentralized Federated Trusted Averaging), which is a novel technique to securely train a machine learning model collaboratively without a central server. Again, more information about this can be found on our paper, but in general, the structure of this cell is the algorithm proposed by the paper ond DeFTA, modified to fit V2X communication's needs, and work properly with the CfC model. At the top, you will find the parameters for this model, including the number of vehicles in the simulation, max epochs, and most importantly, doEvil and percEvil, which decide if there are malitious model seeding vehicles, and how many. Running this cell run the DeFTA model, and a full simulation.
 
 At the end of this file there are a couple cells very similar to the NCPModel file's cells, so that we could test an individual OBU with the federated learning modifications.
+
+### Plotting
+There is also a file Plotting included, which contains the code to plot all of the metrics of these models.
