@@ -41,4 +41,4 @@ The Decentralized method, labeled _DeFTA: Decentralized Federated Training_, is 
 At the end of this file there are a couple cells very similar to the NCPModel file's cells, so that we could test an individual OBU with the federated learning modifications.
 
 ### Plotting
-There is also a file Plotting included, which contains the code to plot all of the metrics of these models.
+There is also a file Plotting included, which contains the code to plot all of the metrics of these models. This file needs to be run after running all of the :
