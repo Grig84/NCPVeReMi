@@ -127,7 +127,7 @@ class OutLogger():
         count = 0
         for vehicle in vehicles:
             currLoss += vehicle.curr_loss
-            f1, recall, precision, accuracy = vehicle.test(testDataIn, testDataOut, True)
+            f1, recall, precision, accuracy = vehicle.test(inTest, outTest, True)
             currF1 += f1
             currRecall += recall
             currPrecision += precision
