@@ -1,11 +1,11 @@
 # NCPVeReMi
-A Privacy and Security Preserving Decentralized Federated Learining Based Liquin Neural Network for Misbehaviour Detection in Vehicle to Everything Communications.
+A Privacy and Security Preserving Decentralized Federated Learining Based Liquid Neural Network for Misbehaviour Detection in Vehicle to Everything Communications.
 
 ## Background
- This repository was developed in conjunction with [this](linkToPaper) paper on the same topic created as part of an NSF REU at Kettering University. Propoesd in this work is a Decentralized Federated Learning method ideal for V2X communications, that utilizes a Closed-form Continuous-time based Neural Circuit Policy to effectively detect misbehaving vehicles in V2X networks by observing the data sent in Basic Safety Messages by a vehicle. This model aims to be resilient to model poisoning and data leakage by using secure decentralized federated learning. To learn more, [read our paper](Paper).
+ This repository was developed in conjunction with our paper on the same topic created as part of an NSF REU at Kettering University. Propoesd in this work is a Decentralized Federated Learning method ideal for V2X communications, that utilizes a Closed-form Continuous-time based Neural Circuit Policy to effectively detect misbehaving vehicles in V2X networks by observing the data sent in Basic Safety Messages by a vehicle. This model aims to be resilient to model poisoning and data leakage by using secure decentralized federated learning. To learn more, read our paper.
 
 ## Sourcing Data
-The data for this project was generated as a part of [this](paperForVeReMiEx) paper by Josef Kamel, in which they extended the existing [VeReMi](link) dataset. Kamel's additions added many different simulated attacks, and expanded the information generated for each BSM. This VeReMi-Extension dataset was used for this paper, and processed with [this](CfCReadDatafromEXMultiThread.py) file. The processed files are availible on our google drive [here](googleDriveofData), as they are too large to be stored in our repository itself. Once dowloaded, place the CSV files in the /Data/ folder under the main folder of this repository for the code to access. 
+The data for this project was generated as a part of [this](paperForVeReMiEx) paper by Josef Kamel, in which they extended the existing [VeReMi](link) dataset. Kamel's additions added many different simulated attacks, and expanded the information generated for each BSM. This VeReMi-Extension dataset was used for this paper, and processed with [this](CfCReadDatafromEXMultiThread.py) file. The processed files are availible on our google drive [here](https://drive.google.com/drive/folders/1P-I0NZ9L2_bRBrjmJm21qkmPVjL4Vh_H?usp=drive_link), as they are too large to be stored in our repository itself. Once dowloaded, place the CSV files in the /Data/ folder under the main folder of this repository for the code to access. 
 
 ## Prerequisites
 To be able to run the code in this repository, you will need:
@@ -19,7 +19,7 @@ To be able to run the code in this repository, you will need:
     - [MatPlotLib](https://matplotlib.org/)
 
 ## Usage Instructions
-There are two main files: [NCPModel](NCPModel.ipynb), which is the standard CfC NCP model created following the documentation of [this](CfCPaper) paper on using this model for misbehaviour detection, and [FederatedNCPModel](FederatedNCPModel.ipynb), which our federated learining implementations. In both of these files, the first several cells are importing the needed dependencies, defining the classes needed by the models, and formatting the datasets to be used by the different models. Run all cells above and including the OBU cell in order to setup everything properly. Once those cells have been run, the rest of the code can be used.
+There are two main files: [NCPModel](NCPModel.ipynb), which is the standard CfC NCP model created following the documentation of [this](CfCPaper) paper on using this model for misbehaviour detection, and [FederatedNCPModel](FederatedNCPModel.ipynb), which our federated learining implementations. In both of these files, the first several cells are importing the needed dependencies, defining the classes needed by the models, and formatting the datasets to be used by the different models. Run all cells above and including the OBU cell in order to setup everything properly. Once those cells have been run, the rest of the code can be used. 
 
 ### NCPModel
 For the [NCPModel](NCPModel.ipynb) file, the next cell you will see is the cell creating our OBU. This is where we set the parameters for the model, and decide if we are using the gpu. This file is designed to be as close to the CfC model defined in [this](CfCPaper) paper, in order to test its functionality before we expand on it. Because of this, refer to their paper for explanations of the parameters. 
@@ -38,7 +38,12 @@ Both methods in this paper output their results to separate text files, both pla
 
 The Decentralized method, labeled _DeFTA: Decentralized Federated Training_, is based off of the work done in [this](patphapnh) paper on DeFTA (Decentralized Federated Trusted Averaging), which is a novel technique to securely train a machine learning model collaboratively without a central server. Again, more information about this can be found on our paper, but in general, the structure of this cell is the algorithm proposed by the paper ond DeFTA, modified to fit V2X communication's needs, and work properly with the CfC model. At the top, you will find the parameters for this model, including the number of vehicles in the simulation, max epochs, and most importantly, doEvil and percEvil, which decide if there are malitious model seeding vehicles, and how many. Running this cell run the DeFTA model, and a full simulation.
 
+Both of these models contain PercEvil and doEvil, which regulate the percentage of model poisoning models and if we are testing with these models. Model poisoning models replace the sending of their own model states with the sending of dummy states to the other models in the 
+
 At the end of this file there are a couple cells very similar to the NCPModel file's cells, so that we could test an individual OBU with the federated learning modifications.
 
 ### Plotting
-There is also a file Plotting included, which contains the code to plot all of the metrics of these models. This file needs to be run after running all of the :
+There are OutLogger classes in both main files that contain the infrastructure used to log the performance of the model, which then gets interpretted by the [Plotting](Plotting.ipynb) file to create graphs. Run the cells in this file sequentially, and replace the path in the fourth cell for it to generate paths based on different runs. These graphs are automatically saved in a path folder under the results, which are saved under out/_model type_/_run variables_.
+
+### Testing
+There are several files designed for rapid testing of different simulations, labeled like _Test_ or _DeFTATest_. These files run long tests at the click of the start button to make running several tests at once easier. These files are not needed to run the tests, and it is easier to use the jupyter notebook files to test this code.
