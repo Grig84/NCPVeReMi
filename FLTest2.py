@@ -579,8 +579,11 @@ if not randomVehicles:
     for vehicle in fedDataSet[500:vehicles+500]: # 10
         rcvrID = int(vehicle[0,0,2].item())
         # Add new OBU for each model
-        if np.random.randint(0,100) < percEvil:
-            models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units, evil = True)
+        if doEvil:
+            if np.random.randint(0,100) < percEvil:
+                models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units, evil = True)
+            else:
+                models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units)
         else:
             models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units)
         # Create Slice of dataset
@@ -604,8 +607,11 @@ for epoch in range(epochs):
             rcvrID = int(vehicle[0,0,2].item())
             # Add new OBU for each model
             if rcvrID not in models:
-                if np.random.randint(0,100) < percEvil:
-                    models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units, evil = True)
+                if doEvil:
+                    if np.random.randint(0,100) < percEvil:
+                        models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units, evil = True)
+                    else:
+                        models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units)
                 else:
                     models[rcvrID] = OBU(7, epochs = subEpochs, gpu=gpu, lr = lr, motors = motors, units = units)
             # Create Slice of dataset
