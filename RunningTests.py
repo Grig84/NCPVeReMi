@@ -543,7 +543,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
     phiGainLoss = 1
     testingRoundNum = 10
 
-    path = f"DeFTA/ConstPos-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
+    path = f"DeFTA/{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
     if not os.path.exists(f"out/{path}"):
         os.makedirs(f"out/{path}")
 
@@ -813,7 +813,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
 def DeFLPNODetection(testName, doEvil, percEvil):
 
     # FORMATTING DATASET FOR FED. LEARNING
-    dataFile = f'Data/CfCMultiExtension/{testName}.csv'
+    dataFile = f'/run/media/will/Share/Kettering/NCPVeReMi/Data/CfCMultiExtension/{testName}.csv'
     dataSet = genfromtxt(dataFile, delimiter=',')
     dataSet = np.delete(dataSet, 0, axis=0) # Remove the labels at the beginning of the dataset
 
@@ -1333,7 +1333,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
     phiGainLoss = 1
     testingRoundNum = 10
 
-    path = f"DeFTA/ConstPos-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
+    path = f"DeFTA/NoDetec{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
     if not os.path.exists(f"out/{path}"):
         os.makedirs(f"out/{path}")
 
@@ -1601,16 +1601,26 @@ def DeFLPNODetection(testName, doEvil, percEvil):
     log.log()
 
 
+tests = ["Disruptive_0709"]
+
+for test in tests:
+    print(f"No Test {test}: 40")
+    DeFLPNODetection(test, True, 40)
 
 
-
-tests = ['ConstPos_0709', 'Disruptive_0709', 'RandomPos_0709', 'DoS_0709', 'EventualStop_1416', 'ConstSpeed_1416', 'DoSDisruptive_0709']
+tests = ['RandomPos_0709', 'DoS_0709', 'EventualStop_1416', 'ConstSpeed_1416', 'DoSDisruptive_0709']
 
 
 for test in tests:
+    print(f"Detect Test {test}: 0")
     DeFLPDDetection(test, False, 0)
+    print(f"Detect Test {test}: 20")
     DeFLPDDetection(test, True, 20)
+    print(f"Detect Test {test}: 40")
     DeFLPDDetection(test, True, 40)
+    print(f"No Test {test}: 0")
     DeFLPNODetection(test, False, 0)
+    print(f"No Test {test}: 20")
     DeFLPNODetection(test, True, 20)
+    print(f"No Test {test}: 40")
     DeFLPNODetection(test, True, 40)
