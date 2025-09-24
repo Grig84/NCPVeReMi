@@ -187,7 +187,26 @@ class Modena(nn.Module):
         out = nn.functional.relu(self.fF(batch)) # pass through FeedForward Layer, then make 0 minimum
         return out, hidden # Return the guess and the hidden state
     
+class CNNLSTM(nn.Module):
+    def __init__(self, inputSize, outputDim, lSTMinFeat = 20, batchFirst = True):
+        super(CNNLSTM, self).__init__()
+        self.inputSize = inputSize
+        self.outputDim = outputDim
+        self.lSTMinFeat = lSTMinFeat
+        self. batchFirst = batchFirst
+        # CNN layer 
+        self.cnn = nn.Conv1d(inputSize, lSTMinFeat, kernel_size=3)
+        # LSTM Layers in of LSTM should be same as out of CNN - 20 x 
+        self.lstm = nn.LSTM(lSTMinFeat, 256, 4, batch_first=batchFirst)
+        # Linear Layer (SVM)
+        self.linear = nn.Linear(lSTMinFeat, outputDim)
 
+    def forward(self, batch, hidden = None):
+        batch, hidden = self.cnn(batch, hidden)
+        batch, hidden = self.lstm(batch, hidden)
+        batch, hidden = self.linear(batch, hidden)
+        out = nn.functional.relu(batch)
+        return out, hidden
 
     # Creating overall model Class
 class OBU():
@@ -416,6 +435,208 @@ class OBU():
 
 
 
+# OBU module class to organize
+class lstmOBU():
+    def __init__(self, inputSize = 10, units = 20, motors = 8, outputs = 20, epochs = 0, lr = 0.001, gpu = False):
+        self.lr = lr
+        self.epochs = epochs
+        self.gpu = gpu
+        self.model = CNNLSTM(inputSize, outputs)
+        self.learner = CfCLearner(self.model, lr) # tune units, lr
+        self.trainer = pl.Trainer(
+            logger = CSVLogger('log/Non-Fed'), # Set ouput destination of logs, logging accuracy every 50 steps
+            max_epochs = epochs, # Number of epochs to train for
+            gradient_clip_val = 1, # This is said to stabilize training, but we should test if that is true
+            accelerator = "gpu" if gpu else "cpu" # Using the GPU to run training or not
+            )
+        self.curr_loss = None
+
+    # Overloading add function to create fed.avg. model
+    def __add__(self, other):
+        self.learner.load_state_dict(dict( (n, self.learner.state_dict().get(n, 0)+other.learner.state_dict().get(n, 0)) for n in set(self.learner.state_dict())|set(other.learner.state_dict()) ))
+        return self
+    
+    # Overloading multiplication function to add weights
+    def __mul__(self, i):
+        self.learner.load_state_dict(dict((n, self.learner.state_dict().get(n, 0)*i) for n in self.learner.state_dict()))
+        return self
+
+    # Overloading div. function to average model
+    def __truediv__(self, i):
+        self.learner.load_state_dict(dict((n, self.learner.state_dict().get(n, 0)/i) for n in self.learner.state_dict()))
+        return self
+    
+    def fit(self, dataLoader):
+        # calling built in fit function
+        self.trainer.fit(self.learner, dataLoader)
+        return self.learner.loss
+    
+    def step(self, epochs, dataLoader):
+        self.trainer.fit_loop.max_epochs = self.trainer.current_epoch + epochs
+        self.curr_loss = self.fit(dataLoader).item()
+    
+    def train(self, epochs, dataLoader, log):
+        epoch = 0
+        while epoch < epochs:
+            log.startEpochTimer()
+            log.startVehicleTimer()
+            self.step(1, dataLoader)
+            log.endEpochTimer()
+            log.endVehicleTimer()
+            log.updateLogs([self], epoch)
+            epoch += 1
+        log.finalLogs(0)
+        log.log()
+
+    
+    # Function to run model through a testing dataset and calculate accuracy. Can be expanded to give more metrics and more useful metrics.
+    def test(self, dataIn, dataOut, mathy = False):
+        # Put input data through model and determine classification
+        with torch.no_grad():
+            outs = np.asarray(self.model(dataIn)[0])
+        outs = torch.from_numpy(outs)
+        # Get the label with the maximum confidence for determining classification
+        print(outs.shape)
+        _, res = torch.max(outs, 2)
+        Pt = Pf = Nt = Nf = 0
+        countR = 0
+        numZero = 0
+        tot = outs.shape[0]
+        total = 0
+        for i in range(0, tot):
+            # Loop through sequences of 10 each
+            for t in range(0, res[i].shape[0]):
+                # Loop through the sub-sequences
+                if res[i,t] == dataOut[i,t]:
+                    if res[i,t] == 0:
+                        Nt += 1
+                        numZero += 1
+                    else:
+                        Pt += 1
+                    # Check if label is correct, and add to count right accordingly
+                    countR += 1
+                else:
+                    if dataOut[i,t] == 0:
+                        Pf += 1
+                        numZero += 1
+                    else:
+                        Nf += 1
+                total += 1
+        # Mathy determines if we want the program to output just the numbers or a string for easy readability
+        if mathy:
+            # If we have at least one true positive, we can do all the other calculations.
+            if Pt != 0:
+                # Calculate accuracy, precision, recall and f1.
+                accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
+                precision = (Pt)/(Pt+Pf)
+                recall = (Pt)/(Pt+Nf)
+                f1 = (2*precision*recall)/(precision+recall)
+                print(precision)
+                print(recall)
+                print("Model got " + str(countR) + "/" + str(total) + " right.")
+                print(f"Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score: {f1}")
+                print(f"{numZero}, {numZero/total * 100}% Zeroes, {total-numZero} Non Zero entries.")
+                return f1, recall, precision, accuracy
+            else:
+                # At least calculate accuracy when the model predicts zero.
+                accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
+                print("Model could not complete tests.")
+                return 0, 0, 0, accuracy 
+        else:
+            # If we have at least one true positive, we can do all the other calculations.
+            if Pt != 0:
+                # Calculate accuracy, prcecision, recall and f1.
+                accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
+                precision = (Pt)/(Pt+Pf)
+                recall = (Pt)/(Pt+Nf)
+                f1 = (2*precision*recall)/(precision+recall)
+                print(precision)
+                print(recall)
+                print("Model got " + str(countR) + "/" + str(total) + " right.")
+                print(f"Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score: {f1}")
+                print(f"{numZero}, {numZero/total * 100}% Zeroes, {total-numZero} Non Zero entries.")
+                return f"Model got {countR}/{total} right. Accuracy: {accuracy}, Precision: {precision}, Recall: {recall}, F1 Score: {f1}"
+            else:
+                print("Model could not complete tests.")
+                return f"Model could not complete tests, found 0 of misbehaviour."
+            
+    def testStep(self, dataLoader):
+        self.learner.validation_step(next(iter(dataLoader)), 0)
+    
+    # Re-define the model.
+    def setModel(self, model):
+        if not model == None:
+            self.model = model
+
+    # Return the current model.
+    def getModel(self):
+        return self.model
+    
+    # Get the saved vehicle weights.
+    def getSavedState(self):
+        return self.prevWeights
+
+    # Update the saved vehicle weights.
+    def updateSavedStates(self):
+        # If this OBU is acting as malicious, we return the incorrect weights.
+        if self.evil:
+            self.prevWeights = dict((n, torch.full(self.learner.state_dict()[n].shape,10000000)) for n in self.learner.state_dict()).copy()
+            return # Never update weights, so always passing on very large weights
+        self.prevWeights = self.learner.state_dict().copy()
+    
+    # get the current state.
+    def getState(self):
+        return self.learner.state_dict()
+    
+    # Restore the OBU from the saved state.
+    def restoreFromBackup(self):
+        self.trainer.fit_loop.max_epochs = self.trainer.current_epoch - self.perEpoch
+        self.trainer.fit(self.learner, self.dataset, ckpt_path=f'log/Fed/{self.id}checkpoint.ckpt')
+
+    # Save the current state as a backup.
+    def saveBackup(self):
+        self.trainer.save_checkpoint(f'log/Fed/{self.id}checkpoint.ckpt')
+    
+    # Get malicious status of vehicle.
+    def isEvil(self):
+        return True if self.evil else False
+    
+    # Set state of learner and model. One input just sets the state, and two inputs adds them together first.
+    def setState(self, one, two = None):
+        if two:
+            tom = dict((n, one.get(n, 0)+two.get(n, 0)) for n in set(one)|set(two))
+        else:
+            tom = one
+        self.learner.load_state_dict(tom)
+        return tom
+    
+    # Run one sub-epoch of the model.
+    def step(self, epochs):
+        self.perEpoch = epochs
+        self.trainer.fit_loop.max_epochs = self.trainer.current_epoch + epochs
+        self.curr_loss = self.fit(self.dataset).item()
+        return self.curr_loss
+
+    # Update the vehicles we are sampling for this epoch.
+    # Not used by DeFL/DeFTA anymore.
+    def updateSelected(self):
+        self.sampling = []
+        count = 0
+        for idx in self.nearbyOBUs:
+            rand = np.random.randint(0, 100)
+            if rand <= int(100*self.samplingWeights[idx]): # Less than or equal, as we want 1 to be selected every time.
+                self.sampling.append(int(idx))
+                count += 1
+        return self.sampling # Returning how many vehicles were selected for training
+        
+    # Reset the trainer with a new trainer.
+    def resetTrainer(self):
+        self.trainer = pl.Trainer(
+            logger = CSVLogger('log'), # Set ouput destination of logs, logging accuracy every 50 steps
+            max_epochs = self.epochs, # Number of epochs to train for
+            gradient_clip_val = 1, # This is said to stabilize training, but we should test if that is true
+            accelerator = "gpu" if self.gpu else "cpu" # Using the GPU to run training or not
+            )
 
 
 
@@ -536,14 +757,14 @@ lossBackupThreshold = 3
 vehicles = []
 selectionWeights = {}
 gpu = False
-doEvil = True
-percEvil = 20
+doEvil = False
+percEvil = 0
 lr = 0.01
 phiGain = 1
 phiGainLoss = 1
 testingRoundNum = 10
 
-path = f"DeFTA/Disruptive-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
+path = f"DeFTA/Disruptive-CNN-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
 if not os.path.exists(f"out/{path}"):
     os.makedirs(f"out/{path}")
 
@@ -726,11 +947,11 @@ for i in range(vehicleNumTot):
     set = data.DataLoader(data.TensorDataset(fedDataSet[i][:,:,3:10].float(), fedDataSet[i][:,:,11].long()), batch_size=batchSize, shuffle=False, num_workers=10, persistent_workers = True) # Create datasets
     if doEvil:
         if np.random.randint(0,100) < percEvil:
-            vehicles.append(OBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set, evil=True)) # Create evil vehicles
+            vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set, evil=True)) # Create evil vehicles
         else:
-            vehicles.append(OBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set)) # Create vehicles
+            vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set)) # Create vehicles
     else:
-        vehicles.append(OBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set)) # Create vehicles
+        vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set)) # Create vehicles
     vehicles[i].prevWeights = vehicles[i].getState() # Save previous state, so that we can do it in iterations
     vehicles[i].datalen = fedDataSet[i].shape[0]
     vehicles[i].outnum = np.random.randint(minConnnectedVehicles, subNetworkNum) # Get number of vehicles in sub network, at least #x so that vehicle has some use.
