@@ -2,3 +2,4 @@ Data/*
 .DS_Store
 out.txt
 log/*
+out/*

@@ -3,6 +3,7 @@ from ncps.wirings import AutoNCP
 from ncps.torch import CfC
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
+
 from numpy import genfromtxt
 import numpy as np
 import torch
@@ -13,12 +14,13 @@ from random import sample
 import os
 import time
 import csv
-import sys
 import json
 
 torch.set_float32_matmul_precision("high")
 
 batchSize = 64
+totEpochs = 100
+
 
 def DeFLPDDetection(testName, doEvil, percEvil):
 
@@ -36,11 +38,11 @@ def DeFLPDDetection(testName, doEvil, percEvil):
         counts[i] = sum
     fedDataSet = np.split(fedDataSet, counts) # Split larger dataset into per vehicle datasets.
 
-    newData = [] 
+    newData = []
     for reciever in fedDataSet: # Go through all vehicle datasets
         subData = []
         index = 0
-        while index < len(reciever) - 10: # organize the new dataset as a list of chuncks of 10 messages 
+        while index < len(reciever) - 10: # organize the new dataset as a list of chuncks of 10 messages
             subData.append(reciever[index:index+10])
             index += 5
         subData = torch.Tensor(subData)
@@ -114,7 +116,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             self.lr = lr
             self.lossFunc = nn.CrossEntropyLoss()
             self.loss = None
-        
+
         def training_step(self, batch, batch_idx):
             # Get in and out from batch
             inputs, target = batch
@@ -122,7 +124,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             output, _ = self.model.forward(inputs)
             # Reorganize inputs for use with loss function
             output = output.permute(0, 2, 1)
-            # Calculate Loss using Cross Entropy Loss 
+            # Calculate Loss using Cross Entropy Loss
             loss = self.lossFunc(output, target)
             self.log("trainLoss", loss, prog_bar=True)
             self.loss = loss
@@ -137,7 +139,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             output = output.permute(0, 2, 1)
             print(f"output: {output.shape}")
             print(f"target: {target.shape}")
-            # Calculate Loss using Cross Entropy Loss 
+            # Calculate Loss using Cross Entropy Loss
             loss = self.lossFunc(output, target)
             self.log("valLoss", loss, prog_bar=True)
             self.loss = loss
@@ -151,9 +153,9 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             # optimizer = torch.optim.AdamW(self.model.parameters(), lr = 0.001)
             # return ([optimizer], [torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.6)])
             return torch.optim.AdamW(self.model.parameters(), lr = 0.01) # TESTING REMOVING THE SCHEDULER
-        
+
         # Creating Model/Module
-    class Modena(nn.Module): 
+    class Modena(nn.Module):
         # CfC with feed-forward layer to classify at end.
         def __init__(self, inputSize, unitNum = None, motorNum = 2, outputDim = 2, batchFirst = True):
             super().__init__()
@@ -182,13 +184,13 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 self.cfc = CfC(inputSize, wiring, batch_first=batchFirst)
                 # Create feed-forward layer
                 self.fF = nn.Linear(motorNum, outputDim)
-            
+
 
         def forward(self, batch, hidden = None):
             batch, hidden = self.cfc(batch, hidden) # Pass inputs through CfC
             out = nn.functional.relu(self.fF(batch)) # pass through FeedForward Layer, then make 0 minimum
             return out, hidden # Return the guess and the hidden state
-        
+
 
 
         # Creating overall model Class
@@ -248,7 +250,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             self.rounds = 0
             self.curr_f1 = 0
             self.prev_f1 = None
-        
+
 
             # Overloading add function to create fed.avg. model
         def __add__(self, other):
@@ -259,25 +261,25 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             # elif self.learner.getHidden() != None:
             #     self.model.load_state_dict(self.model.state_dict())
             return self
-        
+
         def __mul__(self, i):
             self.learner.load_state_dict(dict((n, self.learner.state_dict().get(n, 0)*i) for n in self.learner.state_dict()))
             return self
 
         # Overloading div. function to average model
         def __truediv__(self, i):
-            
+
             self.learner.load_state_dict(dict((n, self.learner.state_dict().get(n, 0)/i) for n in self.learner.state_dict()))
             # self.model.load_state_dict(self.model.state_dict()/i)
             # self.learner.setHidden(self.learner.getHidden() / i)
             # self.model.fF.weight = nn.Parameter(self.model.fF.weight/i)
             return self
-        
+
         def fit(self, dataLoader):
             # calling built in fit function
-            self.trainer.fit(self.learner, dataLoader) 
+            self.trainer.fit(self.learner, dataLoader)
             return self.learner.loss
-        
+
         # Function to run model through a testing dataset and calculate accuracy. Can be expanded to give more metrics and more useful metrics.
         def test(self, dataIn, dataOut, mathy = False):
             # Put input data through model and determine classification
@@ -327,7 +329,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 else:
                     accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
                     print("Model could not complete tests.")
-                    return 0, 0, 0, accuracy 
+                    return 0, 0, 0, accuracy
             else:
                 if Pt != 0:
                     accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
@@ -343,29 +345,29 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 else:
                     print("Model could not complete tests.")
                     return f"Model could not complete tests, found 0 of misbehaviour."
-        
+
         def testStep(self, dataLoader):
             self.learner.validation_step(next(iter(dataLoader)), 0)
-        
+
         def setModel(self, model):
             if not model == None:
                 self.model = model
 
         def getModel(self):
             return self.model
-        
+
         def getSavedState(self):
             return self.prevWeights
-        
+
         def updateSavedStates(self):
             if self.evil:
                 self.prevWeights = dict((n, torch.full(self.learner.state_dict()[n].shape,10000000)) for n in self.learner.state_dict()).copy()
                 return # Never update weights, so always passing on Zero weights. Can also try with infite/random weights
             self.prevWeights = self.learner.state_dict().copy()
-        
+
         def getState(self):
             return self.learner.state_dict()
-        
+
         def restoreFromBackup(self):
             self.trainer.fit_loop.max_epochs = self.trainer.current_epoch - self.perEpoch
             self.trainer.fit(self.learner, self.dataset, ckpt_path=f'log/Fed/{self.id}checkpoint.ckpt')
@@ -376,10 +378,10 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             self.trainer.save_checkpoint(f'log/Fed/{self.id}checkpoint.ckpt')
             # self.backupWeights['model'] = self.model.state_dict().copy()
             # self.backupWeights['learner'] = self.learner.state_dict().copy()
-        
+
         def isEvil(self):
             return True if self.evil else False
-        
+
         def setState(self, one, two = None):
             if two:
                 tom = dict((n, one.get(n, 0)+two.get(n, 0)) for n in set(one)|set(two))
@@ -387,7 +389,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 tom = one
             self.learner.load_state_dict(tom)
             return tom
-        
+
         def step(self, epochs):
             self.perEpoch = epochs
             self.trainer.fit_loop.max_epochs = self.trainer.current_epoch + epochs
@@ -406,8 +408,8 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                     self.sampling.append(int(idx))
                     count += 1
             return self.sampling # Returning how many vehicles were selected for training
-            
-            
+
+
         def resetTrainer(self):
             self.trainer = pl.Trainer(
                 logger = CSVLogger('log'), # Set ouput destination of logs, logging accuracy every 50 steps
@@ -445,13 +447,13 @@ def DeFLPDDetection(testName, doEvil, percEvil):
 
         def startVehicleTimer(self):
             self.startTime = time.time()
-        
+
         def endVehicleTimer(self):
             self.times.append(time.time()-self.startTime)
 
         def startEpochTimer(self):
             self.startEpochTime = time.time()
-        
+
         def endEpochTimer(self):
             self.epochTimes.append(time.time()-self.startEpochTime)
 
@@ -475,7 +477,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
             self.avgRecallVEpoch.append([epoch, currRecall/count])
             self.avgPrecisionVEpoch.append([epoch, currPrecision/count])
             self.avgAccuracyVEpoch.append([epoch, currAccuracy/count])
-                
+
 
         def finalLogs(self, vehicles, percEvil):
             self.lossVPercEvil = [percEvil, self.avgLossVEpoch[-1][1]]
@@ -511,7 +513,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 writer = csv.writer(filename)
                 writer.writerow(['epoch', 'avg Accuracy'])
                 writer.writerows(self.avgAccuracyVEpoch)
-            others = {'Loss V PercEvil':self.lossVPercEvil, 'F1 V PercEvil':self.F1VPercEvil, 'Recall V PercEvil':self.RecallVPercEvil, 'Precision V PercEvil':self.PrecisionVPercEvil, 
+            others = {'Loss V PercEvil':self.lossVPercEvil, 'F1 V PercEvil':self.F1VPercEvil, 'Recall V PercEvil':self.RecallVPercEvil, 'Precision V PercEvil':self.PrecisionVPercEvil,
                     'Accuracy V PercEvil':self.AccuracyVPercEvil, 'Max Per-Vehicle Time':self.MaxVehicleTime, 'Avg Per-Vehicle Time':self.AvgVehicleTime, 'Total Time Per Epoch':self.TotTime}
             with open(f'{path}avgAccuracyVEpoch.csv', 'w', newline='') as filename:
                 writer = csv.writer(filename)
@@ -524,11 +526,11 @@ def DeFLPDDetection(testName, doEvil, percEvil):
 
                 # DeFTA: Decentralized Federalized Training
 
+
     pl.seed_everything(1000)
 
     vehicleNumTot = 200 # 50 # 50
     subNetworkNum = 45 # 15 # 15
-    totEpochs = 60 # 30 # 5
     stepsPerEpoch = 10 # 5 # 30
     stepsPerTestingEpoch = 15
     firstSteps = 50
@@ -543,9 +545,11 @@ def DeFLPDDetection(testName, doEvil, percEvil):
     phiGainLoss = 1
     testingRoundNum = 10
 
-    path = f"DeFTA/{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
+    path = f"LongerPoison/{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
     if not os.path.exists(f"out/{path}"):
         os.makedirs(f"out/{path}")
+    else:
+        return
 
     log = OutLogger(path)
     # Function to update sampling weights and confidence values
@@ -641,7 +645,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                             vehicle.goodNeighbors.append(i)
                     print(vehicle.goodNeighbors)
                 # Keep prev_accuracy and backup constant during testing phase
-                vehicle.restoreFromBackup() # Restore backup weights in order to keep best model during testing 
+                vehicle.restoreFromBackup() # Restore backup weights in order to keep best model during testing
                 print("Restored")
             else:
                 vehicle.prev_acc = vehicle.curr_acc
@@ -682,7 +686,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 vehicle.prev_f1 = vehicle.curr_f1
                 vehicle.saveBackup() # Save Backup for when we run training.`
 
-                        
+
 
 
 
@@ -693,7 +697,7 @@ def DeFLPDDetection(testName, doEvil, percEvil):
                 vehicle.goodNeighbors = [] # reset known good
             else:
                 vehicle.sampling = vehicle.goodNeighbors # Sample all known good
-            
+
         if vehicle.id in selections:
             selections[vehicle.id].append([vehicle.sampling[:]])
         else:
@@ -826,11 +830,11 @@ def DeFLPNODetection(testName, doEvil, percEvil):
         counts[i] = sum
     fedDataSet = np.split(fedDataSet, counts) # Split larger dataset into per vehicle datasets.
 
-    newData = [] 
+    newData = []
     for reciever in fedDataSet: # Go through all vehicle datasets
         subData = []
         index = 0
-        while index < len(reciever) - 10: # organize the new dataset as a list of chuncks of 10 messages 
+        while index < len(reciever) - 10: # organize the new dataset as a list of chuncks of 10 messages
             subData.append(reciever[index:index+10])
             index += 5
         subData = torch.Tensor(subData)
@@ -904,7 +908,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             self.lr = lr
             self.lossFunc = nn.CrossEntropyLoss()
             self.loss = None
-        
+
         def training_step(self, batch, batch_idx):
             # Get in and out from batch
             inputs, target = batch
@@ -912,7 +916,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             output, _ = self.model.forward(inputs)
             # Reorganize inputs for use with loss function
             output = output.permute(0, 2, 1)
-            # Calculate Loss using Cross Entropy Loss 
+            # Calculate Loss using Cross Entropy Loss
             loss = self.lossFunc(output, target)
             self.log("trainLoss", loss, prog_bar=True)
             self.loss = loss
@@ -927,7 +931,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             output = output.permute(0, 2, 1)
             print(f"output: {output.shape}")
             print(f"target: {target.shape}")
-            # Calculate Loss using Cross Entropy Loss 
+            # Calculate Loss using Cross Entropy Loss
             loss = self.lossFunc(output, target)
             self.log("valLoss", loss, prog_bar=True)
             self.loss = loss
@@ -941,9 +945,9 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             # optimizer = torch.optim.AdamW(self.model.parameters(), lr = 0.001)
             # return ([optimizer], [torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.6)])
             return torch.optim.AdamW(self.model.parameters(), lr = 0.01) # TESTING REMOVING THE SCHEDULER
-        
+
         # Creating Model/Module
-    class Modena(nn.Module): 
+    class Modena(nn.Module):
         # CfC with feed-forward layer to classify at end.
         def __init__(self, inputSize, unitNum = None, motorNum = 2, outputDim = 2, batchFirst = True):
             super().__init__()
@@ -972,13 +976,13 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 self.cfc = CfC(inputSize, wiring, batch_first=batchFirst)
                 # Create feed-forward layer
                 self.fF = nn.Linear(motorNum, outputDim)
-            
+
 
         def forward(self, batch, hidden = None):
             batch, hidden = self.cfc(batch, hidden) # Pass inputs through CfC
             out = nn.functional.relu(self.fF(batch)) # pass through FeedForward Layer, then make 0 minimum
             return out, hidden # Return the guess and the hidden state
-        
+
 
 
         # Creating overall model Class
@@ -1038,7 +1042,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             self.rounds = 0
             self.curr_f1 = 0
             self.prev_f1 = None
-        
+
 
             # Overloading add function to create fed.avg. model
         def __add__(self, other):
@@ -1049,25 +1053,25 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             # elif self.learner.getHidden() != None:
             #     self.model.load_state_dict(self.model.state_dict())
             return self
-        
+
         def __mul__(self, i):
             self.learner.load_state_dict(dict((n, self.learner.state_dict().get(n, 0)*i) for n in self.learner.state_dict()))
             return self
 
         # Overloading div. function to average model
         def __truediv__(self, i):
-            
+
             self.learner.load_state_dict(dict((n, self.learner.state_dict().get(n, 0)/i) for n in self.learner.state_dict()))
             # self.model.load_state_dict(self.model.state_dict()/i)
             # self.learner.setHidden(self.learner.getHidden() / i)
             # self.model.fF.weight = nn.Parameter(self.model.fF.weight/i)
             return self
-        
+
         def fit(self, dataLoader):
             # calling built in fit function
-            self.trainer.fit(self.learner, dataLoader) 
+            self.trainer.fit(self.learner, dataLoader)
             return self.learner.loss
-        
+
         # Function to run model through a testing dataset and calculate accuracy. Can be expanded to give more metrics and more useful metrics.
         def test(self, dataIn, dataOut, mathy = False):
             # Put input data through model and determine classification
@@ -1117,7 +1121,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 else:
                     accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
                     print("Model could not complete tests.")
-                    return 0, 0, 0, accuracy 
+                    return 0, 0, 0, accuracy
             else:
                 if Pt != 0:
                     accuracy = (Pt+Nt)/(Pt+Pf+Nf+Nt)
@@ -1133,29 +1137,29 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 else:
                     print("Model could not complete tests.")
                     return f"Model could not complete tests, found 0 of misbehaviour."
-        
+
         def testStep(self, dataLoader):
             self.learner.validation_step(next(iter(dataLoader)), 0)
-        
+
         def setModel(self, model):
             if not model == None:
                 self.model = model
 
         def getModel(self):
             return self.model
-        
+
         def getSavedState(self):
             return self.prevWeights
-        
+
         def updateSavedStates(self):
             if self.evil:
                 self.prevWeights = dict((n, torch.full(self.learner.state_dict()[n].shape,10000000)) for n in self.learner.state_dict()).copy()
                 return # Never update weights, so always passing on Zero weights. Can also try with infite/random weights
             self.prevWeights = self.learner.state_dict().copy()
-        
+
         def getState(self):
             return self.learner.state_dict()
-        
+
         def restoreFromBackup(self):
             self.trainer.fit_loop.max_epochs = self.trainer.current_epoch - self.perEpoch
             self.trainer.fit(self.learner, self.dataset, ckpt_path=f'log/Fed/{self.id}checkpoint.ckpt')
@@ -1166,10 +1170,10 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             self.trainer.save_checkpoint(f'log/Fed/{self.id}checkpoint.ckpt')
             # self.backupWeights['model'] = self.model.state_dict().copy()
             # self.backupWeights['learner'] = self.learner.state_dict().copy()
-        
+
         def isEvil(self):
             return True if self.evil else False
-        
+
         def setState(self, one, two = None):
             if two:
                 tom = dict((n, one.get(n, 0)+two.get(n, 0)) for n in set(one)|set(two))
@@ -1177,7 +1181,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 tom = one
             self.learner.load_state_dict(tom)
             return tom
-        
+
         def step(self, epochs):
             self.perEpoch = epochs
             self.trainer.fit_loop.max_epochs = self.trainer.current_epoch + epochs
@@ -1196,8 +1200,8 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                     self.sampling.append(int(idx))
                     count += 1
             return self.sampling # Returning how many vehicles were selected for training
-            
-            
+
+
         def resetTrainer(self):
             self.trainer = pl.Trainer(
                 logger = CSVLogger('log'), # Set ouput destination of logs, logging accuracy every 50 steps
@@ -1235,13 +1239,13 @@ def DeFLPNODetection(testName, doEvil, percEvil):
 
         def startVehicleTimer(self):
             self.startTime = time.time()
-        
+
         def endVehicleTimer(self):
             self.times.append(time.time()-self.startTime)
 
         def startEpochTimer(self):
             self.startEpochTime = time.time()
-        
+
         def endEpochTimer(self):
             self.epochTimes.append(time.time()-self.startEpochTime)
 
@@ -1265,7 +1269,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
             self.avgRecallVEpoch.append([epoch, currRecall/count])
             self.avgPrecisionVEpoch.append([epoch, currPrecision/count])
             self.avgAccuracyVEpoch.append([epoch, currAccuracy/count])
-                
+
 
         def finalLogs(self, vehicles, percEvil):
             self.lossVPercEvil = [percEvil, self.avgLossVEpoch[-1][1]]
@@ -1301,7 +1305,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 writer = csv.writer(filename)
                 writer.writerow(['epoch', 'avg Accuracy'])
                 writer.writerows(self.avgAccuracyVEpoch)
-            others = {'Loss V PercEvil':self.lossVPercEvil, 'F1 V PercEvil':self.F1VPercEvil, 'Recall V PercEvil':self.RecallVPercEvil, 'Precision V PercEvil':self.PrecisionVPercEvil, 
+            others = {'Loss V PercEvil':self.lossVPercEvil, 'F1 V PercEvil':self.F1VPercEvil, 'Recall V PercEvil':self.RecallVPercEvil, 'Precision V PercEvil':self.PrecisionVPercEvil,
                     'Accuracy V PercEvil':self.AccuracyVPercEvil, 'Max Per-Vehicle Time':self.MaxVehicleTime, 'Avg Per-Vehicle Time':self.AvgVehicleTime, 'Total Time Per Epoch':self.TotTime}
             with open(f'{path}avgAccuracyVEpoch.csv', 'w', newline='') as filename:
                 writer = csv.writer(filename)
@@ -1318,7 +1322,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
 
     vehicleNumTot = 200 # 50 # 50
     subNetworkNum = 45 # 15 # 15
-    totEpochs = 60 # 30 # 5
+  # 30 # 5
     stepsPerEpoch = 10 # 5 # 30
     stepsPerTestingEpoch = 15
     firstSteps = 50
@@ -1333,9 +1337,11 @@ def DeFLPNODetection(testName, doEvil, percEvil):
     phiGainLoss = 1
     testingRoundNum = 10
 
-    path = f"DeFTA/NoDetec{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
+    path = f"LongerPoison/NoDetec{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
     if not os.path.exists(f"out/{path}"):
         os.makedirs(f"out/{path}")
+    else:
+        return
 
     log = OutLogger(path)
     # Function to update sampling weights and confidence values
@@ -1431,7 +1437,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                             vehicle.goodNeighbors.append(i)
                     print(vehicle.goodNeighbors)
                 # Keep prev_accuracy and backup constant during testing phase
-                vehicle.restoreFromBackup() # Restore backup weights in order to keep best model during testing 
+                vehicle.restoreFromBackup() # Restore backup weights in order to keep best model during testing
                 print("Restored")
             else:
                 vehicle.prev_acc = vehicle.curr_acc
@@ -1472,7 +1478,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 vehicle.prev_f1 = vehicle.curr_f1
                 vehicle.saveBackup() # Save Backup for when we run training.`
 
-                        
+
 
 
 
@@ -1483,7 +1489,7 @@ def DeFLPNODetection(testName, doEvil, percEvil):
                 vehicle.goodNeighbors = [] # reset known good
             else:
                 vehicle.sampling = [i for i in vehicle.nearbyOBUs] # Sample all known good
-            
+
         if vehicle.id in selections:
             selections[vehicle.id].append([vehicle.sampling[:]])
         else:
@@ -1601,14 +1607,8 @@ def DeFLPNODetection(testName, doEvil, percEvil):
     log.log()
 
 
-tests = ["Disruptive_0709"]
 
-for test in tests:
-    print(f"No Test {test}: 40")
-    DeFLPNODetection(test, True, 40)
-
-
-tests = ['RandomPos_0709', 'DoS_0709', 'EventualStop_1416', 'ConstSpeed_1416', 'DoSDisruptive_0709']
+tests = ['Disruptive_0709','RandomPos_0709']
 
 
 for test in tests:

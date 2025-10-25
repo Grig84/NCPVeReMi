@@ -437,7 +437,7 @@ class OBU():
 
 # OBU module class to organize
 class lstmOBU():
-    def __init__(self, inputSize = 10, units = 20, motors = 8, outputs = 20, epochs = 0, lr = 0.001, gpu = False):
+    def __init__(self, inputSize = 10, units = 20, motors = 8, outputs = 20, epochs = 0, lr = 0.001, gpu = False, dataset = None, evil = False):
         self.lr = lr
         self.epochs = epochs
         self.gpu = gpu
@@ -449,7 +449,9 @@ class lstmOBU():
             gradient_clip_val = 1, # This is said to stabilize training, but we should test if that is true
             accelerator = "gpu" if gpu else "cpu" # Using the GPU to run training or not
             )
+        self.dataset = dataset
         self.curr_loss = None
+        self.evil = evil
 
     # Overloading add function to create fed.avg. model
     def __add__(self, other):
@@ -947,11 +949,11 @@ for i in range(vehicleNumTot):
     set = data.DataLoader(data.TensorDataset(fedDataSet[i][:,:,3:10].float(), fedDataSet[i][:,:,11].long()), batch_size=batchSize, shuffle=False, num_workers=10, persistent_workers = True) # Create datasets
     if doEvil:
         if np.random.randint(0,100) < percEvil:
-            vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set, evil=True)) # Create evil vehicles
+            vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, gpu=gpu, dataset=set, evil=True)) # Create evil vehicles
         else:
-            vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set)) # Create vehicles
+            vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, gpu=gpu, dataset=set)) # Create vehicles
     else:
-        vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, randInt=i, gpu=gpu, dataset=set)) # Create vehicles
+        vehicles.append(lstmOBU(inputSize=7, units=20, motors=8, outputs=20, lr=lr, gpu=gpu, dataset=set)) # Create vehicles
     vehicles[i].prevWeights = vehicles[i].getState() # Save previous state, so that we can do it in iterations
     vehicles[i].datalen = fedDataSet[i].shape[0]
     vehicles[i].outnum = np.random.randint(minConnnectedVehicles, subNetworkNum) # Get number of vehicles in sub network, at least #x so that vehicle has some use.
