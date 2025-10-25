@@ -1340,7 +1340,7 @@ def DeFLOG(testName, doEvil, percEvil):
     phiGainLoss = 1
     testingRoundNum = 10
 
-    path = f"LongerPoison/{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
+    path = f"LongerPoison/OGDeFTA{testName}-{doEvil}-{percEvil}-{vehicleNumTot}-{subNetworkNum}-{totEpochs}-{stepsPerEpoch}-{stepsPerTestingEpoch}-{minConnnectedVehicles}-{backupThreshold}-{phiGain}/"
     if not os.path.exists(f"out/{path}"):
         os.makedirs(f"out/{path}")
     else:
@@ -1556,5 +1556,4 @@ def DeFLOG(testName, doEvil, percEvil):
     log.log()
 
 
-DeFLPDDetection("RandomPos_0709", True, 40)
 DeFLOG("RandomPos_0709", True, 40)
